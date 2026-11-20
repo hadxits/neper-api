@@ -1,72 +1,43 @@
 # Neper News API – Quick Start
 
-## What is it
+Query news by country and optional section. Both GET and POST can return one, several, or all available sections in a single request. Each article includes a headline, source URL, and image and content fields when available.
 
-Query current news by country code and optional section. GET or POST. One request can return a single section or every section for that country. Articles include headlines, links, images, and AI summaries for supported locales.
+## Base URL and Authentication
 
----
+Use the gateway where you subscribed. Send your API key in a request header and keep it out of the URL and JSON body.
 
-## Spotlights
+**RapidAPI**
 
-- Ten countries: `en`, `ko`, `au`, `nz`, `it`, `ja`, `gb`, `fr`, `de`, `in`
-- GET or POST in one call, one section or every section
-- Headlines, links, images, and AI summaries for `de`, `en`, and `ko`
-
----
-
-## Base URL
-
-```
-https://neper-news-api.p.rapidapi.com
-```
-
----
-
-## Authentication
-
-Subscribe to a plan, then send your RapidAPI key on every request. Do not put the key in the URL or JSON body.
-
-```
+```text
+Base URL: https://neper-news-api.p.rapidapi.com
 X-RapidAPI-Key: <YOUR_KEY>
 X-RapidAPI-Host: neper-news-api.p.rapidapi.com
 ```
 
----
+**JoJ API**
+
+Use the base URL shown on the API listing and send `X-JoJAPI-Key: <YOUR_KEY>` with each request.
 
 ## Endpoint
 
-```
+```text
 GET  /queryNews
 POST /queryNews
 ```
 
----
+Use query parameters for GET and a JSON body for POST.
 
 ## Parameters
 
-- **country** – Required. Lowercase country/language code.  
-  Allowed: `en`, `ko`, `au`, `nz`, `it`, `ja`, `gb`, `fr`, `de`, `in`
-
-- **section** – Optional. Omit to return every section for that country.  
-  Common: `top`, `BUSINESS`, `ENTERTAINMENT`, `SPORTS`, `WORLD`, `HEALTH`  
-  `it`, `ko`, `ja`, `fr`, `de` use `SCITECH`.  
-  `en`, `au`, `nz`, `gb`, `in` use `SCIENCE` and `TECHNOLOGY`.  
-  `TOP` is treated as `top`.  
-  GET: comma-separated list, for example `BUSINESS,SPORTS`.  
-  POST: string, comma-separated string, or JSON array.
-
----
+- **`country`** is required. The API supports 13 country codes: `en`, `ko`, `au`, `nz`, `it`, `ja`, `gb`, `fr`, `de`, `in`, `ca`, `es`, `br`. The server trims whitespace and normalizes the code to lowercase.
+- **`section`** is optional. Omit it to query all available sections for the country. Pass one section or a comma-separated string such as `BUSINESS,SPORTS` for both GET and POST. Section codes are case-insensitive, and the server removes duplicates. For a JSON array or repeated query parameter, the server reads the first non-empty value.
+- All countries support `top`, `BUSINESS`, `ENTERTAINMENT`, `SPORTS`, `WORLD`, and `HEALTH`.
+- `it`, `ko`, `ja`, `fr`, `de`, `es`, and `br` also support `SCITECH`.
+- `en`, `au`, `nz`, `gb`, `in`, and `ca` also support `SCIENCE` and `TECHNOLOGY`.
 
 ## Request Examples
 
-**GET**
-
-```
-GET /queryNews?country=ko
-GET /queryNews?country=ko&section=top
-```
-
-**curl**
+**GET using curl**
 
 ```bash
 curl -G 'https://neper-news-api.p.rapidapi.com/queryNews' \
@@ -76,28 +47,14 @@ curl -G 'https://neper-news-api.p.rapidapi.com/queryNews' \
   -H 'X-RapidAPI-Host: neper-news-api.p.rapidapi.com'
 ```
 
-**JavaScript (axios)**
+**POST using Axios**
 
 ```javascript
 import axios from "axios";
 
-const res = await axios.get("https://neper-news-api.p.rapidapi.com/queryNews", {
-  params: { country: "ko", section: "top" },
-  headers: {
-    "X-RapidAPI-Key": "<YOUR_KEY>",
-    "X-RapidAPI-Host": "neper-news-api.p.rapidapi.com"
-  }
-});
-
-console.log(res.data);
-```
-
-**POST**
-
-```javascript
-const res = await axios.post(
+const { data } = await axios.post(
   "https://neper-news-api.p.rapidapi.com/queryNews",
-  { country: "en", section: ["top", "BUSINESS"] },
+  { country: "en", section: "top,BUSINESS" },
   {
     headers: {
       "X-RapidAPI-Key": "<YOUR_KEY>",
@@ -105,11 +62,11 @@ const res = await axios.post(
     }
   }
 );
+
+console.log(data);
 ```
 
----
-
-## Response Shape
+## Response
 
 ```json
 {
@@ -127,13 +84,14 @@ const res = await axios.post(
         "updatedAt": 1757116800000,
         "news": [
           {
-            "title": { "_text": "Headline" },
-            "link": { "_text": "https://news.google.com/rss" },
-            "url": "https://example.com/article",
-            "img": "https://example.com/image.jpg",
             "content": "Article body",
-            "summary": "One-sentence summary",
-            "section": "top"
+            "faviconUrl": "https://example.com/favicon.ico",
+            "img": "https://example.com/image.jpg",
+            "section": "top",
+            "timeStamp": 1757116800000,
+            "title": "Headline",
+            "updatedAt": "2025-09-06T00:00:00.000Z",
+            "url": "https://example.com/article"
           }
         ]
       }
@@ -142,45 +100,27 @@ const res = await axios.post(
 }
 ```
 
-- `data.sections` is empty when every section was returned.
-- `updatedAt` is a Unix timestamp in milliseconds.
-- AI `summary` is filled for `de`, `en`, and `ko`. Other countries return an empty summary.
-- News is synced about every 5 minutes.
-
----
+- `data.sections` contains the normalized section filters. An empty array means all available sections were requested.
+- `data.count` counts the returned section documents. Each document has its own `news` array.
+- The section document's `updatedAt` is a Unix timestamp in milliseconds. News sync is scheduled every five minutes.
+- Each article's `title` and `updatedAt` are strings. Missing text fields default to `""`, and a missing article `section` uses the containing document's section ID. Article `timeStamp` is a Unix timestamp in milliseconds or `null`.
+- The JSON example shows all eight fields returned for each article.
 
 ## Errors
 
-- **400** – Invalid or missing `country` / `section`. `errorCode` is `INVALID_REQUEST`. Allowed values are in `message`.
-- **401** – RapidAPI key missing, invalid, or no active subscription.
-- **429** – Rate limit or quota exceeded.
-- **5xx** – Upstream or transient error.
-
----
+- **400** with `errorCode: "INVALID_REQUEST"` means the country is missing or the country or section code is invalid. For invalid codes, `message` lists the allowed values.
+- **401** from the gateway indicates an authentication or subscription problem.
+- **403** with `errorCode: "FORBIDDEN"` means the API could not authenticate the gateway request.
+- **402** from JoJ API indicates a billing issue, such as an exhausted quota.
+- **429** from RapidAPI indicates a rate limit or quota limit.
+- **500** with `errorCode: "INTERNAL_SERVER_ERROR"` indicates an unexpected server error.
 
 ## Common Recipes
 
-1. **Country front page**
-
-   ```
-   GET /queryNews?country=en
-   ```
-
-2. **Science/Tech for Korean market**
-
-   ```
-   GET /queryNews?country=ko&section=SCITECH
-   ```
-
-3. **Sports and business in one POST**
-
-   ```json
-   { "country": "gb", "section": ["SPORTS", "BUSINESS"] }
-   ```
-
----
+- All available Canadian sections with `GET /queryNews?country=ca`.
+- Science and technology in Spain with `GET /queryNews?country=es&section=SCITECH`.
+- Sports and business in one POST with `{"country":"gb","section":"SPORTS,BUSINESS"}`.
 
 ## Support / Region Requests
 
-Want another region?  
-Contact: **david@hadfamily.com**
+Contact **david@hadfamily.com**.
